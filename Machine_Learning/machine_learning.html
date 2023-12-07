@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Learnig Radical Regression</title>
+    <style>
+        table,
+        td,
+        tr {
+            border-collapse: collapse;
+        }
+
+        table td {
+            padding: 0 10px;
+        }
+
+        input {
+            width: 50px;
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas" style="float:left">
+
+    </canvas>
+    <div style="float:left;padding:20px">
+        <table border="1" id="trained-data" width="400px">
+
+        </table>
+        <table border="1" width="400px">
+            <tr>
+                <th>Input X </th>
+                <th>Input Y </th>
+                <th>Input F(X,Y) </th>
+            </tr>
+            <tr>
+                <td><input type="number" min="0" max="400" id="xValue" /></td>
+                <td><input type="number" min="0" max="400" id="yValue" /></td>
+                <td><input type="text" id="fValue" /></td>
+            </tr>
+            <tr>
+                <td></td>
+                <td></td>
+                <td><button onclick="train()">Train </button></td>
+            </tr>
+        </table>
+    </div>
+
+    <script>
+        function updateTable(jsonData, tableId) {
+            const existingTable = document.getElementById(tableId);
+
+            // If the table doesn't exist, create a new one
+            if (!existingTable) {
+                createTable(jsonData, tableId);
+                return;
+            }
+
+            // Clear existing table content
+            while (existingTable.firstChild) {
+                existingTable.removeChild(existingTable.firstChild);
+            }
+
+            // Create the table header
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            for (const key in jsonData[0]) {
+                const th = document.createElement('th');
+                th.textContent = key;
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            existingTable.appendChild(thead);
+
+            // Create the table body
+            const tbody = document.createElement('tbody');
+            for (const data of jsonData) {
+                const row = document.createElement('tr');
+                for (const key in data) {
+                    const td = document.createElement('td');
+                    td.textContent = data[key];
+                    row.appendChild(td);
+                }
+                tbody.appendChild(row);
+            }
+            existingTable.appendChild(tbody);
+        }
+
+        function findMostFrequentValue(data, property) {
+            // Count occurrences of each value in the specified property
+            const valueCounts = {};
+
+            data.forEach(entry => {
+                const value = entry[property];
+                valueCounts[value] = (valueCounts[value] || 0) + 1;
+            });
+
+            // Find the most frequent value
+            let mostFrequentValue = null;
+            let maxCount = 0;
+
+            for (const value in valueCounts) {
+                if (valueCounts[value] > maxCount) {
+                    mostFrequentValue = value;
+                    maxCount = valueCounts[value];
+                }
+            }
+
+            return mostFrequentValue;
+        }
+    </script>
+    <script>
+        // document.addEventListener('DOMContentLoaded', function () {
+        const canvas = document.getElementById("canvas");
+        canvas.style.border = "1px solid black";
+        canvas.width = "600"
+        canvas.height = "600";
+        const ctx = canvas.getContext("2d");
+
+
+        let method = "k-nearest";
+
+        const trainedData = [
+
+        ];
+        // x max value is 
+        let max_x = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.x)) : 0;
+        let max_y = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.y)) : 0;
+        console.log("Max size", max_x, max_y)
+
+        var k_nearest = [];
+
+        function calculateDistance(x1, y1, x2, y2) {
+            const deltaX = x2 - x1;
+            const deltaY = y2 - y1;
+            const distance = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+            return distance;
+        }
+        function kNearest(x, y) {
+            let k = Math.round(Math.sqrt(trainedData.length));
+            // if (k > trainedData.length) {
+            //     alert("Plese slect k < trained data");
+            //     return;
+            // }
+            
+            k_nearest = [];
+
+            // Calculate distances and store in k_nearest array
+            for (let i = 0; i < trainedData.length; i++) {
+                let distance = calculateDistance(x, y, Math.round((trainedData[i].x / max_x) * 400), Math.round((trainedData[i].y / max_y) * 400));
+                k_nearest.push({ x: trainedData[i].x, y: trainedData[i].y, f: trainedData[i].f, distance: Math.round(distance) });
+            }
+
+            // Sort the k_nearest array based on distances
+            k_nearest.sort((a, b) => a.distance - b.distance);
+
+            // Draw lines and labels for the k-nearest points
+            for (let i = 0; i < k; i++) {
+                ctx.beginPath();
+                ctx.strokeStyle = "red";
+
+                // Draw a line from (x, y) to the k-nearest point
+                ctx.lineTo(100 + x, 500 - y);
+                ctx.lineTo(100 + (k_nearest[i].x / max_x) * 400, 500 - (k_nearest[i].y / max_y) * 400);
+                ctx.stroke();
+
+                // Draw a circle or point at the k-nearest point
+                ctx.beginPath();
+                ctx.arc(100 + (k_nearest[i].x / max_x) * 400, 500 - (k_nearest[i].y / max_y) * 400, 3, 0, 2 * Math.PI);
+                ctx.fillStyle = "blue";
+                ctx.fill();
+
+                // Label the k-nearest point with coordinates
+                // ctx.fillStyle = "black";
+                // ctx.fillText(
+                //     `${Math.round((k_nearest[i].x / max_x) * 400)}, ${Math.round((k_nearest[i].y / max_y) * 400)}`,
+                //     100 + (k_nearest[i].x / max_x) * 400,
+                //     500 - (k_nearest[i].y / max_y) * 400 - 10
+                // );
+                ctx.font = "8px Comic Sans MS";
+                ctx.fillText(
+                    k_nearest[i].distance,
+                    100 + (k_nearest[i].x / max_x) * 400,
+                    500 - (k_nearest[i].y / max_y) * 400 - 10
+                );
+
+                ctx.font = "20px Comic Sans MS";
+                ctx.fillText(`Predicted Value ${findMostFrequentValue(k_nearest.slice(0, 5),"f")}`, 200, 50);
+            }
+        }
+
+        function UpdatePoints() {
+            ctx.clearRect(100, 92, 408, 408);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(100, 92, 408, 408);
+
+            for (let i = 0; i < trainedData.length; i++) {
+
+                ctx.textAlign = "center";
+
+                ctx.font = "20px Comic Sans MS";
+
+
+                if (trainedData[i].f > 0) {
+                    ctx.fillStyle = "green";
+                    ctx.fillText("+", 100 + (trainedData[i].x / max_x) * 400, 500 - (trainedData[i].y / max_y) * 400);
+                }
+                else {
+                    ctx.fillStyle = "red";
+                    ctx.fillText("-", 100 + (trainedData[i].x / max_x) * 400, 500 - (trainedData[i].y / max_y) * 400);
+                }
+                ctx.font = "8px Comic Sans MS";
+                ctx.fillStyle = "black";
+                ctx.fillText(trainedData[i].f, 100 + (trainedData[i].x / max_x) * 400, 508 - (trainedData[i].y / max_y) * 400);
+
+
+
+                //console.log((trainedData[i].x/10000)*400,500 - (trainedData[i].y/100)*400)
+            }
+            updateTable(trainedData, "trained-data");
+        }
+        UpdatePoints();
+
+        function train() {
+            var x = document.getElementById("xValue");
+            var y = document.getElementById("yValue");
+            var f = document.getElementById("fValue");
+            if ((x > 10000 && x < 0) || (y > 100 && y < 0)) {
+                alert("Input is not valid");
+                return;
+            }
+            var data = { x: parseInt(x.value), y: parseInt(y.value), f:(f.value) };
+            trainedData.push(data);
+            
+
+            max_x = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.x)) : 0;
+            max_y = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.y)) : 0;
+            UpdatePoints();
+        }
+
+
+
+
+        canvas.addEventListener('mousedown', function (event) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+
+            //console.log(`Mouse Click Position: (${mouseX}, ${mouseY})`);
+
+            // You can use the coordinates for further processing or drawing on the canvas
+            // For example, drawing a small circle where the click occurred
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            IntialGraph();
+            UpdatePoints();
+
+            ctx.beginPath();
+            ctx.arc(mouseX, mouseY, 55, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'red';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(mouseX, mouseY, 2, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            //console.log(mouseX - 100, 500 - mouseY);
+
+            kNearest(mouseX - 100, 500 - mouseY);
+        });
+
+        function IntialGraph() {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "gray";
+            ctx.lineCap = "round";
+
+            ctx.beginPath();
+            ctx.moveTo(100, 0);
+            ctx.lineTo(100, 600);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, 500);
+            ctx.lineTo(600, 500);
+            ctx.stroke();
+
+            ctx.fillStyle = "#0003";
+            ctx.fillRect(0, 0, 600, 600);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(100, 92, 408, 408);
+
+            ctx.font = "20px Comic Sans MS";
+            ctx.fillStyle = "green";
+            ctx.textAlign = "start";
+            ctx.fillText("Y", 80, 50);
+
+            ctx.fillText("X", 580, 490);
+
+            ctx.textAlign = "end";
+            ctx.fillText("(0,0)", 80, 520);
+            ctx.fillText("(0,400)", 80, 100);
+            ctx.fillText("(400,400)", 530, 520);
+        }
+
+        window.onload = () => {
+            IntialGraph();
+        }
+
+        // });
+    </script>
+
+
+    <script>
+
+        const techCompanyData = [
+            { monthlySpend: 100, supportTickets: 2, customerType: 'loyal' },
+            { monthlySpend: 150, supportTickets: 4, customerType: 'churn' },
+            { monthlySpend: 80, supportTickets: 1, customerType: 'loyal' },
+            { monthlySpend: 200, supportTickets: 6, customerType: 'churn' },
+            { monthlySpend: 120, supportTickets: 3, customerType: 'loyal' },
+            { monthlySpend: 180, supportTickets: 5, customerType: 'churn' },
+            { monthlySpend: 90, supportTickets: 2, customerType: 'loyal' },
+            { monthlySpend: 110, supportTickets: 4, customerType: 'loyal' },
+            { monthlySpend: 130, supportTickets: 3, customerType: 'churn' },
+            { monthlySpend: 160, supportTickets: 5, customerType: 'loyal' },
+            { monthlySpend: 70, supportTickets: 1, customerType: 'churn' },
+            { monthlySpend: 140, supportTickets: 4, customerType: 'loyal' },
+            { monthlySpend: 95, supportTickets: 2, customerType: 'churn' },
+            { monthlySpend: 170, supportTickets: 6, customerType: 'loyal' },
+            { monthlySpend: 115, supportTickets: 3, customerType: 'churn' },
+            { monthlySpend: 190, supportTickets: 5, customerType: 'loyal' },
+            // Additional data points with varying features and targets
+            //   { monthlySpend: 160, supportTickets: 5, customerType: 'churn' },
+            //   { monthlySpend: 130, supportTickets: 3, customerType: 'loyal' },
+            //   { monthlySpend: 95, supportTickets: 2, customerType: 'loyal' },
+            // More data points as needed
+        ];
+
+        console.log(techCompanyData);
+
+        for (let i = 0; i < techCompanyData.length; i++) {
+            var data = { x: parseInt(techCompanyData[i].monthlySpend), y: parseInt(techCompanyData[i].supportTickets), f: (techCompanyData[i].customerType) };
+            trainedData.push(data);
+        }
+        max_x = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.x)) : 0;
+        max_y = (trainedData.length > 0) ? Math.max(...trainedData.map(entry => entry.y)) : 0;
+        // = Math.max(...techCompanyData.map(entry => entry.rdSpending));
+        console.log("training completed");
+        UpdatePoints();
+    </script>
+
+</body>
+
+</html>

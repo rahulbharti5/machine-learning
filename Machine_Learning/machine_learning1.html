@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine learnig Bays Classification</title>
+</head>
+
+<body>
+    <input type="file" id="fileInput" />
+     
+
+   <div id="demo">
+       
+   </div>
+
+    <script>
+        let datasets = [
+            { RID: 1, "Age": "Youth", Income: "High", Student: "No", Credit_Rating: "Fair", Class: "No" },
+            { RID: 2, "Age": "Youth", Income: "High", Student: "No", Credit_Rating: "Excellent", Class: "No" },
+            { RID: 3, Age: "Middle Age", Income: "High", Student: "No", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 4, Age: "Senior", Income: "Medium", Student: "No", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 5, Age: "Senior", Income: "Low", Student: "Yes", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 6, Age: "Senior", Income: "Low", Student: "Yes", Credit_Rating: "Excellent", Class: "No" },
+            { RID: 7, Age: "Middle Age", Income: "Low", Student: "Yes", Credit_Rating: "Excellent", Class: "Yes" },
+            { RID: 8, Age: "Youth", Income: "Medium", Student: "No", Credit_Rating: "Fair", Class: "No" },
+            { RID: 9, Age: "Youth", Income: "Low", Student: "Yes", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 10, Age: "Senior", Income: "Medium", Student: "Yes", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 11, Age: "Youth", Income: "Medium", Student: "Yes", Credit_Rating: "Excellent", Class: "Yes" },
+            { RID: 12, Age: "Middle Age", Income: "Medium", Student: "No", Credit_Rating: "Excellent", Class: "Yes" },
+            { RID: 13, Age: "Middle Age", Income: "High", Student: "Yes", Credit_Rating: "Fair", Class: "Yes" },
+            { RID: 14, Age: "Senior", Income: "Medium", Student: "No", Credit_Rating: "Excellent", Class: "No" }
+        ];
+
+        // 
+        let testdata = { RID: 1, Age: "Youth", Income: "High", Student: "Yes", Credit_Rating: "Excellent" };
+
+
+        const ML = {
+            missingAttribute: (testdata, datasets) => {
+                const testdataKeys = Object.keys(testdata);
+                const datasetKeys = datasets.reduce((keys, entry) => {
+                    return keys.concat(Object.keys(entry));
+                }, []);
+
+                return datasetKeys.find(key => !testdataKeys.includes(key));
+            }, // return one missing atrribute in test data
+            datasetsSize: (datasets) => {
+                return datasets.length;
+            }, // return the size of datasets
+            filterDatasetsByAttributeValue: (datasets, attribute, specificValue) => {
+                return datasets.filter(entry => entry[attribute] === specificValue);
+            },// returning the all data which have this atrributes , specificValue Pair
+            attributeValuesOccurance: (datasets, attribute) => {
+                const attributeCounts = {};
+
+                datasets.forEach(entry => {
+                    const attributeValue = entry[attribute];
+
+                    if (attributeValue in attributeCounts) {
+                        attributeCounts[attributeValue]++;
+                    } else {
+                        attributeCounts[attributeValue] = 1;
+                    }
+                });
+
+                return attributeCounts;
+            }
+
+        }
+
+        const Normalization = (data) => {
+            let normaliseValues = [];
+            let sum = data.reduce((accumulator, currentValue) => accumulator + currentValue.p, 0);
+            for (let i = 0; i < data.length; i++) {
+                let normaliseProbability = data[i].p / sum;
+                normaliseValues.push({ key: data[i].key, normaliseProbability: normaliseProbability * 100 });
+            }
+
+            console.log(normaliseValues);
+        }
+
+        function PredictedValue(testdata) {
+            let missingValue = ML.missingAttribute(testdata, datasets);
+            console.log("the missing value is :", missingValue);
+
+            let occurrences = ML.attributeValuesOccurance(datasets, missingValue);
+
+            console.log(`The value occarances in ${missingValue} is :`, occurrences);
+
+            let unknows = [];
+
+            Object.entries(occurrences).forEach(([key, value]) => {
+
+                let data = { key: key, p: value / datasets.length, value: value };
+                unknows.push(data);
+            });
+            console.log(unknows);
+
+
+            let knowns = [];
+            for (let i = 0; i < unknows.length; i++) {
+                let filter_dataset = ML.filterDatasetsByAttributeValue(datasets, missingValue, unknows[i].key);
+                console.log("This is one category", unknows[i].key, unknows[i].value)
+                console.log(filter_dataset);
+
+
+
+                let x = 1;
+                Object.entries(testdata).forEach(([key, value]) => {
+                    if (key != "RID") {
+                        let filter_dataset_ = ML.filterDatasetsByAttributeValue(filter_dataset, key, value);
+
+                        let probability = (filter_dataset_.length+1) / unknows[i].value ; // +1 form laplace smoothing algorithms
+                        if (probability != 0) {
+                            x = x * probability;
+                        }
+
+
+                        console.log(`The Number of ${key}="${value}/${unknows[i].key}" is ${filter_dataset_.length} probabilty is ${probability}`);
+                    }
+                    //console.log(x);
+                })
+                //console.log("Total Probability :"+x*unknows[i].value+" of ",unknows[i].key);
+                console.log(unknows[i].p)
+                knowns.push({ key: unknows[i].key, p: x * unknows[i].p });
+            }
+            console.log(knowns);
+            Normalization(knowns);
+        }
+
+
+        //PredictedValue(testdata);
+
+    </script>
+
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+
+        function convertCsvToJson(csvData) {
+    const rows = csvData.replace(/\r/g, '').trim().split('\n');
+    const header = rows[0].split(',');
+
+    const jsonData = rows.slice(1).map(row => {
+        const values = row.split(',');
+        const rowData = {};
+
+        header.forEach((key, index) => {
+            // Remove quotes from keys and values, and replace "/" with "_"
+            const cleanedKey = key.replace(/["']/g, '').replace(/\//g, '_');
+            const cleanedValue = !isNaN(values[index]) ? parseFloat(values[index]) : values[index].trim();
+            rowData[cleanedKey] = cleanedValue;
+        });
+
+        return rowData;
+    });
+
+    return jsonData;
+}
+
+
+
+        function handleFile(event) {
+            const fileInput = event.target;
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const fileContent = e.target.result;
+                    //console.log('File content:', fileContent);
+
+                    // Now you can process the file content as needed
+                    // For example, parse CSV data, JSON, etc.
+                    const jsonData = convertCsvToJson(fileContent);
+
+                    // Log the resulting JSON data
+                    //console.log(JSON.stringify(jsonData, null, 2));
+
+                    datasets = jsonData;
+                    testdata = {"buying":"low","maint":"low","doors":4,"persons":4,"lug_boot":"big","safety":"high"}
+                     
+                    console.log(datasets,testdata);
+
+                    PredictedValue(testdata);
+            };
+
+                reader.readAsText(file);
+            }
+        }
+    </script>
+
+
+</body>
+
+</html>
